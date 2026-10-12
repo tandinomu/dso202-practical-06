@@ -1,0 +1,80 @@
+{{- /*
+frontend/configmap.yaml - nginx configuration and the web page.
+nginx serves index.html and forwards every /api/ request to the backend
+Service, so the browser only needs one address.
+*/}}
+{{- $backend := include "visitapp.componentName" (dict "ctx" . "component" "backend") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "visitapp.componentName" (dict "ctx" . "component" "frontend") }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "frontend") | nindent 4 }}
+data:
+  default.conf: |
+    server {
+        listen 80;
+
+        location / {
+            root  /usr/share/nginx/html;
+            index index.html;
+        }
+
+        # Forward the API to the backend Service inside the cluster.
+        location /api/ {
+            proxy_pass http://{{ $backend }}:{{ .Values.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        # Used by the frontend's own probes.
+        location = /healthz {
+            access_log off;
+            return 200 "ok\n";
+        }
+    }
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>{{ .Values.frontend.title }}</title>
+      <style>
+        body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; color: #1f2933; }
+        .count { font-size: 4rem; font-weight: 700; margin: 1rem 0; }
+        .meta { color: #52606d; line-height: 1.6; }
+        .env { display: inline-block; padding: .1rem .6rem; border-radius: 1rem; background: #e3f2fd; }
+        button { font-size: 1rem; padding: .5rem 1rem; cursor: pointer; }
+        .error { color: #b00020; }
+      </style>
+    </head>
+    <body>
+      <h1>{{ .Values.frontend.title }}</h1>
+      <p>Environment: <span class="env">{{ include "visitapp.environment" . }}</span></p>
+      <div class="count" id="count">...</div>
+      <p class="meta" id="meta">Contacting the backend...</p>
+      <button onclick="visit()">Count another visit</button>
+      <p class="meta">
+        Release {{ .Release.Name }} in namespace {{ .Release.Namespace }},
+        chart {{ include "visitapp.chart" . }}
+      </p>
+      <script>
+        async function visit() {
+          const meta = document.getElementById("meta");
+          try {
+            const res = await fetch("/api/visit", { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || res.statusText);
+            document.getElementById("count").textContent = data.visits + " visits";
+            meta.className = "meta";
+            meta.textContent = data.message + " (served by Pod " + data.servedBy + ", app version " + data.version + ")";
+          } catch (err) {
+            meta.className = "meta error";
+            meta.textContent = "Backend error: " + err.message;
+          }
+        }
+        visit();
+      </script>
+    </body>
+    </html>

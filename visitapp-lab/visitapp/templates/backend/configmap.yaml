@@ -1,0 +1,13 @@
+{{- /*
+backend/configmap.yaml - the backend source code, copied from files/app.py.
+.Files.Get reads a non-template file from the chart.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "visitapp.componentName" (dict "ctx" . "component" "backend") }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+data:
+  app.py: |
+    {{- .Files.Get "files/app.py" | nindent 4 }}

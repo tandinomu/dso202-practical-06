@@ -1,0 +1,43 @@
+{{- /*
+tests/test-end-to-end.yaml - run by "helm test". It goes through all three
+tiers: frontend (nginx) -> backend (Python) -> Redis. The Pod must exit 0.
+*/}}
+{{- $frontend := include "visitapp.componentName" (dict "ctx" . "component" "frontend") }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "visitapp.fullname" . }}-test-e2e
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "test") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  restartPolicy: Never
+  containers:
+    - name: e2e
+      image: {{ .Values.tests.image }}
+      # A block scalar (|) keeps the script one string, so ": " inside it is
+      # not read as a YAML key-value separator.
+      command:
+        - sh
+        - -c
+        - |
+          set -e
+          URL=http://{{ $frontend }}:{{ .Values.frontend.service.port }}
+          echo "1. frontend serves the page"
+          wget -qO- "$URL/" | grep -q "{{ .Values.frontend.title }}"
+          echo "2. backend is ready (it can reach Redis)"
+          wget -qO- "$URL/api/ready" | grep -q '"ready"'
+          echo "3. a visit is stored in Redis"
+          wget -qO- --post-data="" "$URL/api/visit" | grep -q '"visits"'
+          echo "4. the environment is correct"
+          wget -qO- "$URL/api/stats" | grep -q '"environment": "{{ include "visitapp.environment" . }}"'
+          echo "all checks passed"
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi

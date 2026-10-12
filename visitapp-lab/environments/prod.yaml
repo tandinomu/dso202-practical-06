@@ -1,0 +1,34 @@
+# environments/prod.yaml - overrides for the production release.
+# Use with: -f environments/prod.yaml  (never layer it with dev.yaml)
+global:
+  environment: prod
+
+frontend:
+  replicaCount: 2
+  title: "Visit Counter"
+  service:
+    type: ClusterIP
+    nodePort: null
+
+backend:
+  replicaCount: 3
+  message: "Production"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+redis:
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

@@ -1,0 +1,23 @@
+visitapp {{ .Chart.Version }} is installed as release {{ .Release.Name }} (revision {{ .Release.Revision }}) in namespace {{ .Release.Namespace }}.
+Environment: {{ include "visitapp.environment" . }}
+
+Components:
+  frontend  {{ include "visitapp.componentName" (dict "ctx" . "component" "frontend") }}  ({{ .Values.frontend.replicaCount }} replica(s), Service type {{ .Values.frontend.service.type }})
+  backend   {{ include "visitapp.componentName" (dict "ctx" . "component" "backend") }}  ({{ if .Values.backend.autoscaling.enabled }}autoscaled {{ .Values.backend.autoscaling.minReplicas }}-{{ .Values.backend.autoscaling.maxReplicas }}{{ else }}{{ .Values.backend.replicaCount }} replica(s){{ end }})
+  redis     {{ include "visitapp.componentName" (dict "ctx" . "component" "redis") }}  (persistence {{ if .Values.redis.persistence.enabled }}on, {{ .Values.redis.persistence.size }}{{ else }}off{{ end }})
+
+Watch the Pods become ready:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+{{- if and (eq .Values.frontend.service.type "NodePort") .Values.frontend.service.nodePort }}
+
+Open the application:
+  http://localhost:{{ .Values.frontend.service.nodePort }}
+{{- else }}
+
+Open the application:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "visitapp.componentName" (dict "ctx" . "component" "frontend") }} 8080:{{ .Values.frontend.service.port }}
+  then browse to http://localhost:8080
+{{- end }}
+
+Run the end-to-end test:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }} --logs

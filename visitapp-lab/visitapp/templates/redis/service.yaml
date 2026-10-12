@@ -1,0 +1,20 @@
+{{- /*
+redis/service.yaml - a headless Service (clusterIP: None).
+A StatefulSet needs one to give its Pod a stable DNS name. The backend
+connects to this Service's name.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "visitapp.componentName" (dict "ctx" . "component" "redis") }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "redis") | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "visitapp.selectorLabels" (dict "ctx" . "component" "redis") | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP

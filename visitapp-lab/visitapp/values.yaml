@@ -1,0 +1,99 @@
+# values.yaml - default configuration of the visitapp chart.
+# Every key can be overridden with -f <file> or --set <key>=<value>.
+
+# Values shared by every component.
+global:
+  # REQUIRED. dev, staging or prod. Left empty on purpose so the chart
+  # refuses to render until an environment is chosen.
+  environment: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Tier 1 - frontend: nginx serves the web page and forwards /api/* to the
+# backend Service, so the browser only ever talks to one address.
+# ---------------------------------------------------------------------------
+frontend:
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: "1.30-alpine"
+    pullPolicy: IfNotPresent
+  title: "DSO202 Visit Counter"
+  service:
+    # ClusterIP or NodePort.
+    type: ClusterIP
+    port: 80
+    # Used only when type is NodePort. Must be 30000-32767.
+    nodePort: null
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+# ---------------------------------------------------------------------------
+# Tier 2 - backend: a small Python API (files/app.py) that counts visits in
+# Redis. It uses only the Python standard library, so no image build is needed.
+# ---------------------------------------------------------------------------
+backend:
+  replicaCount: 2
+  image:
+    repository: python
+    tag: "3.13-alpine"
+    pullPolicy: IfNotPresent
+  port: 8080
+  message: "Hello from the visitapp backend"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 96Mi
+  # A HorizontalPodAutoscaler. Needs metrics-server in the cluster.
+  # When enabled, replicaCount is ignored.
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# ---------------------------------------------------------------------------
+# Tier 3 - database: a single Redis instance run as a StatefulSet so that its
+# data survives Pod restarts.
+# ---------------------------------------------------------------------------
+redis:
+  image:
+    repository: redis
+    tag: "7.4-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    # Leave empty to let the chart generate a random password on install and
+    # keep it on every upgrade. Never commit a real password to Git.
+    password: ""
+  persistence:
+    enabled: true
+    size: 1Gi
+    # Empty means "use the cluster's default StorageClass".
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# Optional Ingress in front of the frontend. Needs an ingress controller.
+ingress:
+  enabled: false
+  className: ""
+  host: visitapp.local
+
+# Image used by the "helm test" Pod.
+tests:
+  image: busybox:1.37

@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "visitapp values",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["global", "frontend", "backend", "redis"],
+  "$defs": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag":        { "type": "string", "minLength": 1 },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": { "type": "object" },
+        "limits":   { "type": "object" }
+      }
+    }
+  },
+  "properties": {
+    "global": {
+      "type": "object",
+      "required": ["environment"],
+      "properties": {
+        "environment": { "enum": ["", "dev", "staging", "prod"] }
+      }
+    },
+    "nameOverride":     { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replicaCount", "image", "service"],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "image":        { "$ref": "#/$defs/image" },
+        "title":        { "type": "string" },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "port"],
+          "properties": {
+            "type":     { "enum": ["ClusterIP", "NodePort"] },
+            "port":     { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "nodePort": { "type": ["integer", "null"], "minimum": 30000, "maximum": 32767 }
+          }
+        },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replicaCount", "image", "port"],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "image":        { "$ref": "#/$defs/image" },
+        "port":         { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "message":      { "type": "string" },
+        "resources":    { "$ref": "#/$defs/resources" },
+        "autoscaling": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled":     { "type": "boolean" },
+            "minReplicas": { "type": "integer", "minimum": 1 },
+            "maxReplicas": { "type": "integer", "minimum": 1 },
+            "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "auth", "persistence"],
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "password": { "type": "string" }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled":      { "type": "boolean" },
+            "size":         { "type": "string", "pattern": "^[0-9]+(Mi|Gi)$" },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled":   { "type": "boolean" },
+        "className": { "type": "string" },
+        "host":      { "type": "string" }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

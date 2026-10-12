@@ -1,0 +1,20 @@
+# environments/dev.yaml - overrides for the development release.
+# Use with: -f environments/dev.yaml  (never layer it with prod.yaml)
+global:
+  environment: dev
+
+frontend:
+  replicaCount: 1
+  title: "Visit Counter (DEV)"
+  service:
+    type: NodePort
+    nodePort: 30080          # mapped to the host by the Practical 1 kind config
+
+backend:
+  replicaCount: 3
+  message: "Upgraded by Helm - revision 2"
+
+redis:
+  persistence:
+    enabled: true
+    size: 256Mi

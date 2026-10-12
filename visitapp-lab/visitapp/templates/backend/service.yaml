@@ -1,0 +1,19 @@
+{{- /*
+backend/service.yaml - internal address of the API. Only the frontend
+(nginx) talks to it, so it is always ClusterIP.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "visitapp.componentName" (dict "ctx" . "component" "backend") }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "visitapp.selectorLabels" (dict "ctx" . "component" "backend") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.backend.port }}
+      targetPort: http
+      protocol: TCP

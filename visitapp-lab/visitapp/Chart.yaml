@@ -1,0 +1,17 @@
+# Chart.yaml - identity and metadata of the visitapp chart.
+apiVersion: v2                  # chart format for Helm 3 and Helm 4
+name: visitapp                  # must match the directory name
+description: >-
+  A three-tier visit counter (nginx frontend, Python API, Redis database)
+  used for the DSO202 Helm practical.
+type: application
+version: 0.1.0                  # version of the CHART; bump on every chart change
+appVersion: "1.0.0"             # version of the application (the backend code in files/app.py)
+kubeVersion: ">=1.30.0-0"
+keywords:
+  - nginx
+  - python
+  - redis
+  - dso202
+maintainers:
+  - name: DSO202 Student

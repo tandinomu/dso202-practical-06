@@ -1,0 +1,91 @@
+{{- /*
+backend/deployment.yaml - the Python API. It reads its code from the
+ConfigMap and the Redis password from the Secret.
+*/}}
+{{- $name := include "visitapp.componentName" (dict "ctx" . "component" "backend") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  # When autoscaling is on, the HPA owns the replica count, so it is left out.
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "visitapp.selectorLabels" (dict "ctx" . "component" "backend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "visitapp.labels" (dict "ctx" . "component" "backend") | nindent 8 }}
+      annotations:
+        # New Pods roll out whenever the code or the password changes.
+        checksum/code: {{ include (print $.Template.BasePath "/backend/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/redis/secret.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: api
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "/app/app.py"]
+          env:
+            - name: APP_PORT
+              value: {{ .Values.backend.port | quote }}
+            - name: APP_ENV
+              value: {{ include "visitapp.environment" . | quote }}
+            - name: APP_MESSAGE
+              value: {{ .Values.backend.message | quote }}
+            - name: APP_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: REDIS_HOST
+              value: {{ include "visitapp.componentName" (dict "ctx" . "component" "redis") | quote }}
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "visitapp.redisSecretName" . }}
+                  key: redis-password
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.port }}
+              protocol: TCP
+          # Ready only when Redis answers, so the Service never sends traffic
+          # to a backend that cannot reach the database.
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: code
+              mountPath: /app
+              readOnly: true
+      volumes:
+        - name: code
+          configMap:
+            name: {{ $name }}

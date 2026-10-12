@@ -1,0 +1,22 @@
+{{- /*
+frontend/service.yaml - the public entry point. nodePort is emitted only
+when the type is NodePort AND a port number is given.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "visitapp.componentName" (dict "ctx" . "component" "frontend") }}
+  labels:
+    {{- include "visitapp.labels" (dict "ctx" . "component" "frontend") | nindent 4 }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  selector:
+    {{- include "visitapp.selectorLabels" (dict "ctx" . "component" "frontend") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.frontend.service.type "NodePort") .Values.frontend.service.nodePort }}
+      nodePort: {{ .Values.frontend.service.nodePort }}
+      {{- end }}
